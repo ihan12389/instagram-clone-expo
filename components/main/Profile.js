@@ -8,11 +8,15 @@ import {
   Button,
   Dimensions,
   TouchableOpacity,
+  Platform,
+  ImagePickerIOS,
 } from "react-native";
 import { connect } from "react-redux";
 import { firebase } from "@firebase/app";
 import Constants from "expo-constants";
-import { DebugInstructions } from "react-native/Libraries/NewAppScreen";
+import * as ImagePicker from "expo-image-picker";
+import { bindActionCreators } from "redux";
+import { updateProfile } from "../../redux/actions";
 
 require("firebase/firestore");
 
@@ -20,6 +24,7 @@ function Profile(props) {
   const [userPosts, setUserPosts] = useState([]);
   const [user, setUser] = useState(null);
   const [following, setFollowing] = useState(false);
+  const [image, setImage] = useState("");
 
   useEffect(() => {
     const { currentUser, posts } = props;
@@ -27,6 +32,14 @@ function Profile(props) {
     if (props.route.params.uid === firebase.auth().currentUser.uid) {
       setUser(currentUser);
       setUserPosts(posts);
+
+      if (currentUser.photoURL == "") {
+        setImage(
+          "https://us.123rf.com/450wm/rainart123/rainart1231610/rainart123161000003/64244338-%EB%B0%94%EB%82%98%EB%82%98-%EC%9D%BC%EB%9F%AC%EC%8A%A4%ED%8A%B8-%EB%B2%A1%ED%84%B0.jpg?ver=6"
+        );
+      } else {
+        setImage(currentUser.photoURL);
+      }
     } else {
       firebase
         .firestore()
@@ -35,7 +48,16 @@ function Profile(props) {
         .get()
         .then((snapshot) => {
           if (snapshot.exists) {
-            setUser(snapshot.data());
+            let obj = snapshot.data();
+            console.log(obj);
+            if (obj.photoURL == "" || obj.photoURL == null) {
+              setImage(
+                "https://us.123rf.com/450wm/rainart123/rainart1231610/rainart123161000003/64244338-%EB%B0%94%EB%82%98%EB%82%98-%EC%9D%BC%EB%9F%AC%EC%8A%A4%ED%8A%B8-%EB%B2%A1%ED%84%B0.jpg?ver=6"
+              );
+            } else {
+              setImage(obj.photoURL);
+            }
+            setUser(obj);
           } else {
             console.log("does not exist");
           }
@@ -62,6 +84,47 @@ function Profile(props) {
       setFollowing(false);
     }
   }, [props.route.params.uid, props.following]);
+
+  useEffect(() => {
+    (async () => {
+      if (Platform.OS !== "web") {
+        const { status } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+      }
+    })();
+  }, []);
+
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: true,
+    });
+
+    if (!result.cancelled) {
+      setImage(result.uri);
+      await firebase
+        .auth()
+        .currentUser.updateProfile({
+          photoURL: image,
+        })
+        .then(() => {
+          console.log("update Successful");
+          updateProfile(props.route.params.uid);
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+      await firebase
+        .firestore()
+        .collection("users")
+        .doc(props.route.params.uid)
+        .update({ photoURL: result.uri })
+        .then(() => {
+          console.log("upload Successful");
+        })
+        .catch((error) => console.log(error));
+    }
+  };
 
   const onFollow = () => {
     firebase
@@ -96,12 +159,23 @@ function Profile(props) {
       <View style={styles.containerInfo}>
         <Text style={styles.name}>{user.name}</Text>
         <View style={styles.profileBar}>
-          <Image
-            style={styles.profileImage}
-            source={{
-              uri: "https://t1.daumcdn.net/cfile/tistory/99C85D3E5D33046624",
-            }}
-          />
+          {props.route.params.uid !== firebase.auth().currentUser.uid ? (
+            <Image
+              style={styles.profileImage}
+              source={{
+                uri: image,
+              }}
+            />
+          ) : (
+            <TouchableOpacity onPress={() => pickImage()}>
+              <Image
+                style={styles.profileImage}
+                source={{
+                  uri: image,
+                }}
+              />
+            </TouchableOpacity>
+          )}
           <Text style={styles.email}>{user.email}</Text>
         </View>
         {props.route.params.uid !== firebase.auth().currentUser.uid ? (
@@ -209,4 +283,12 @@ const mapStateToProps = (store) => ({
   following: store.userState.following,
 });
 
-export default connect(mapStateToProps, null)(Profile);
+const mapDispatchProps = (dispatch) =>
+  bindActionCreators(
+    {
+      updateProfile,
+    },
+    dispatch
+  );
+
+export default connect(mapStateToProps, mapDispatchProps)(Profile);

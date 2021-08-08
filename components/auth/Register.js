@@ -17,6 +17,7 @@ export default class RegisterScreen extends Component {
       email: ``,
       password: ``,
       name: "",
+      photoURL: "",
       width: Dimensions.get("window").width,
       height: Dimensions.get("window").height,
     };
@@ -24,7 +25,7 @@ export default class RegisterScreen extends Component {
   }
 
   onSignup() {
-    const { email, password, name } = this.state;
+    const { email, password, name, photoURL } = this.state;
     firebase
       .auth()
       .createUserWithEmailAndPassword(email, password)
@@ -33,7 +34,7 @@ export default class RegisterScreen extends Component {
           .firestore()
           .collection("users")
           .doc(firebase.auth().currentUser.uid)
-          .set({ name, email });
+          .set({ name, email, photoURL });
         console.log(result);
       })
       .catch((error) => {

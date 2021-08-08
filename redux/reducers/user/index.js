@@ -3,6 +3,7 @@ import {
   USER_POSTS_STATE_CHANGE,
   USER_FOLLOWING_STATE_CHANGE,
   CLEAR_DATA,
+  USER_UPDATE_PROFILE,
 } from "../../constants";
 
 // 초기 state 값
@@ -25,6 +26,11 @@ export const user = (state = initialState, action) => {
       return {
         ...state,
         following: action.following,
+      };
+    case USER_UPDATE_PROFILE:
+      return {
+        ...state,
+        currentUser: { ...currentUser, photoURL: action.photoURL },
       };
     case CLEAR_DATA:
       return {

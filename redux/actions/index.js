@@ -8,6 +8,7 @@ import {
   USERS_LIKES_STATE_CHANGE,
   USERS_ADD_LIKES,
   USERS_DELETE_LIKES,
+  USER_UPDATE_PROFILE,
 } from "../constants/index";
 import firebase from "firebase";
 
@@ -165,5 +166,11 @@ export const deleteLikes = (userId, postId) => {
       type: USERS_DELETE_LIKES,
       payload: postId,
     });
+  };
+};
+
+export const updateProfile = (photoURL) => {
+  return (dispatch, getState) => {
+    dispatch({ type: USER_UPDATE_PROFILE, photoURL });
   };
 };
