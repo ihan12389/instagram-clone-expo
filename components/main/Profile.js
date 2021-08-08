@@ -26,6 +26,7 @@ function Profile(props) {
   const [following, setFollowing] = useState(false);
   const [image, setImage] = useState("");
 
+  // 초기화 작업
   useEffect(() => {
     const { currentUser, posts } = props;
 
@@ -49,7 +50,6 @@ function Profile(props) {
         .then((snapshot) => {
           if (snapshot.exists) {
             let obj = snapshot.data();
-            console.log(obj);
             if (obj.photoURL == "" || obj.photoURL == null) {
               setImage(
                 "https://us.123rf.com/450wm/rainart123/rainart1231610/rainart123161000003/64244338-%EB%B0%94%EB%82%98%EB%82%98-%EC%9D%BC%EB%9F%AC%EC%8A%A4%ED%8A%B8-%EB%B2%A1%ED%84%B0.jpg?ver=6"
@@ -85,6 +85,7 @@ function Profile(props) {
     }
   }, [props.route.params.uid, props.following]);
 
+  // 갤러리 허가 요청
   useEffect(() => {
     (async () => {
       if (Platform.OS !== "web") {
@@ -94,6 +95,7 @@ function Profile(props) {
     })();
   }, []);
 
+  // 프로필 사진 변경 기능
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
@@ -108,7 +110,6 @@ function Profile(props) {
           photoURL: image,
         })
         .then(() => {
-          console.log("update Successful");
           updateProfile(props.route.params.uid);
         })
         .catch((error) => {
@@ -126,6 +127,7 @@ function Profile(props) {
     }
   };
 
+  // 팔로우 기능
   const onFollow = () => {
     firebase
       .firestore()
@@ -136,6 +138,7 @@ function Profile(props) {
       .set({});
   };
 
+  // 언팔로우 기능
   const onUnfollow = () => {
     firebase
       .firestore()
@@ -146,6 +149,7 @@ function Profile(props) {
       .delete();
   };
 
+  // 로그아웃 기능
   const onLogout = () => {
     firebase.auth().signOut();
   };
@@ -211,7 +215,20 @@ function Profile(props) {
           data={userPosts}
           renderItem={({ item }) => (
             <View style={styles.containerImage}>
-              <Image style={styles.image} source={{ uri: item.downloadURL }} />
+              <TouchableOpacity
+                onPress={() =>
+                  props.navigation.navigate("Post", {
+                    uid: props.route.params.uid,
+                    postId: item.id,
+                    post: userPosts,
+                  })
+                }
+              >
+                <Image
+                  style={styles.image}
+                  source={{ uri: item.downloadURL }}
+                />
+              </TouchableOpacity>
             </View>
           )}
         />

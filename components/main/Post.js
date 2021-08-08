@@ -1,95 +1,111 @@
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useFocusEffect,
+} from "react";
 import {
-  StyleSheet,
   View,
   Text,
-  Image,
+  StyleSheet,
   FlatList,
-  Button,
   Dimensions,
+  Image,
 } from "react-native";
+import Constants from "expo-constants";
 import firebase from "firebase";
 require("firebase/firestore");
-import { connect } from "react-redux";
-import { bindActionCreators } from "redux";
-import { addLikes, deleteLikes } from "../../redux/actions";
-import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import { Fontisto } from "@expo/vector-icons";
 
-function Feed(props) {
-  const [posts, setPosts] = useState([]);
+const Post = (props) => {
+  const [yPosition, setYPosition] = useState(0);
 
-  // 피드 정보 초기화
+  const [user, setUser] = useState(null);
+  const [idx, setIdx] = useState(0);
+
+  const flatlistRef = useRef();
+
   useEffect(() => {
-    if (
-      props.usersFollowingLoaded == props.following.length &&
-      props.following.length !== 0
-    ) {
-      props.feed.sort(function (x, y) {
-        return x.creation - y.creation;
-      });
-      setPosts(props.feed);
-    }
-  }, [props.usersFollowingLoaded, props.feed, props.feed.likesCount]);
-
-  // 좋아요 기능
-  const onLikePress = async (userId, postId) => {
-    await firebase
+    firebase
       .firestore()
-      .collection("posts")
-      .doc(userId)
-      .collection("userPosts")
-      .doc(postId)
-      .collection("likes")
-      .doc(firebase.auth().currentUser.uid)
-      .set({});
-    props.addLikes(userId, postId);
-    console.log(props.feed);
+      .collection("users")
+      .doc(props.route.params.uid)
+      .get()
+      .then((doc) => {
+        if (doc.exists) {
+          setUser(doc.data());
+        } else {
+          console.log("Can't find user!");
+        }
+      })
+      .catch((error) => console.log(error));
+  }, [idx]);
+
+  const scrollToIndex = () => {
+    console.log("scroll to index called !");
+    flatlistRef.current.scrollToIndex({ animated: true, index: idx });
   };
 
-  // 좋아요 취소 기능
-  const onDislikePress = async (userId, postId) => {
-    await firebase
-      .firestore()
-      .collection("posts")
-      .doc(userId)
-      .collection("userPosts")
-      .doc(postId)
-      .collection("likes")
-      .doc(firebase.auth().currentUser.uid)
-      .delete();
-    props.deleteLikes(userId, postId);
-    console.log(props.feed);
-  };
+  if (user == null) {
+    return null;
+  }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerView}>
-        <Text style={styles.headerText}>Hanstagram</Text>
-      </View>
+    <View style={{ flex: 1 }}>
       <View style={styles.containerGallery}>
         <FlatList
           numColumns={1}
           horizontal={false}
-          data={posts}
+          initialScrollIndex={0}
+          onScrollToIndexFailed={(info) => {
+            const wait = new Promise((resolve) => setTimeout(resolve, 500));
+            wait.then(() => {
+              flatlistRef.current?.scrollToIndex({
+                index: info.index,
+                animated: true,
+              });
+            });
+          }}
+          data={props.route.params.post}
+          ref={flatlistRef}
           renderItem={({ item }) => {
             return (
-              <View style={styles.containerImage}>
-                <View style={styles.containerMenuBar}>
-                  <View style={styles.containerMenyProfileBar}>
-                    <Image
-                      style={styles.containerMenuImage}
-                      source={{
-                        uri: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRXlVi4dFArx-iLHtok8pFLKoSxaeDYh6R-zw&usqp=CAU",
-                      }}
-                    />
-                    <Text style={styles.containerMenuText}>
-                      {item.user.name}
-                    </Text>
+              <View
+                style={styles.containerImage}
+                onLayout={() => setIdx(idx + 1)}
+              >
+                {item.id === props.route.params.postId ? (
+                  <View
+                    style={styles.containerMenuBar}
+                    onLayout={() => scrollToIndex()}
+                  >
+                    <View style={styles.containerMenyProfileBar}>
+                      <Image
+                        style={styles.containerMenuImage}
+                        source={{
+                          uri: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRXlVi4dFArx-iLHtok8pFLKoSxaeDYh6R-zw&usqp=CAU",
+                        }}
+                      />
+                      <Text style={styles.containerMenuText}>{user.name}?</Text>
+                    </View>
+                    <Text style={styles.containerMenuButton}>❌</Text>
                   </View>
-                  <Text style={styles.containerMenuButton}>❌</Text>
-                </View>
+                ) : (
+                  <View style={styles.containerMenuBar}>
+                    <View style={styles.containerMenyProfileBar}>
+                      <Image
+                        style={styles.containerMenuImage}
+                        source={{
+                          uri: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRXlVi4dFArx-iLHtok8pFLKoSxaeDYh6R-zw&usqp=CAU",
+                        }}
+                      />
+                      <Text style={styles.containerMenuText}>{user.name}!</Text>
+                    </View>
+                    <Text style={styles.containerMenuButton}>❌</Text>
+                  </View>
+                )}
                 <Image
                   style={styles.image}
                   source={{ uri: item.downloadURL }}
@@ -136,7 +152,7 @@ function Feed(props) {
       </View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   headerView: {
@@ -205,21 +221,4 @@ const styles = StyleSheet.create({
   },
 });
 
-// 스토어에 state 가져오기
-const mapStateToProps = (store) => ({
-  currentUser: store.userState.currentUser, // 현재유저
-  following: store.userState.following, // 팔로윙유저
-  feed: store.usersState.feed, // 피드
-  usersFollowingLoaded: store.usersState.usersFollowingLoaded, // 로드된 팔로윙 유저 수
-});
-
-const mapDispatchProps = (dispatch) =>
-  bindActionCreators(
-    {
-      addLikes,
-      deleteLikes,
-    },
-    dispatch
-  );
-
-export default connect(mapStateToProps, mapDispatchProps)(Feed);
+export default Post;

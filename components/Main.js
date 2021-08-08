@@ -71,6 +71,7 @@ export class Main extends Component {
         <Tab.Screen
           name="Profile"
           component={ProfileScreen}
+          navigation={this.props.navigation}
           listeners={({ navigation }) => ({
             tabPress: (event) => {
               event.preventDefault();
