@@ -30,7 +30,7 @@ export const user = (state = initialState, action) => {
     case USER_UPDATE_PROFILE:
       return {
         ...state,
-        currentUser: { ...currentUser, photoURL: action.photoURL },
+        currentUser: { ...state.currentUser, photoURL: action.photoURL },
       };
     case CLEAR_DATA:
       return {

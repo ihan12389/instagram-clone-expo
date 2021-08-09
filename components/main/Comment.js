@@ -20,8 +20,11 @@ function Comment(props) {
   const [comments, setComments] = useState([]);
   const [postId, setPostId] = useState("");
   const [text, setText] = useState("");
+  const [init, setInit] = useState(false);
 
+  // 초기화 함수
   useEffect(() => {
+    // comment랑 user 매칭 함수
     function matchUserToComment(comments) {
       for (let i = 0; i < comments.length; i++) {
         if (comments[i].hasOwnProperty("user")) {
@@ -29,15 +32,19 @@ function Comment(props) {
         }
 
         const user = props.users.find((x) => x.uid === comments[i].creator);
+
         if (user == undefined) {
           props.fetchUsersData(comments[i].creator, false);
         } else {
           comments[i].user = user;
         }
       }
+
       setComments(comments);
+      setInit(true);
     }
 
+    // postId의 comments 불러오기 함수
     if (props.route.params.postId !== postId) {
       firebase
         .firestore()
@@ -59,12 +66,17 @@ function Comment(props) {
     } else {
       matchUserToComment(comments);
     }
+
+    console.log(comments);
   }, [props.route.params.postId, props.users]);
 
+  // 댓글 달기 함수
   const onCommentSend = () => {
     if (text === "") {
       return;
     }
+
+    setInit(false);
 
     firebase
       .firestore()
@@ -82,8 +94,8 @@ function Comment(props) {
     setText("");
   };
 
+  // 댓글 제거 함수
   const onCommentDelete = (commentId) => {
-    console.log(commentId);
     firebase
       .firestore()
       .collection("posts")
@@ -95,6 +107,8 @@ function Comment(props) {
       .delete();
   };
 
+  if (init == false) return null;
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -104,15 +118,30 @@ function Comment(props) {
         renderItem={({ item }) => (
           <View style={styles.comment}>
             <View style={styles.profileBar}>
-              <Image
-                style={styles.profileImage}
-                source={{
-                  uri: "http://kwakhyunjoo.co.kr/web/product/big/201805/712_shop1_15266383201366.jpg",
-                }}
-              />
+              {item.user !== undefined ? (
+                item.user.photoURL !== "" ? (
+                  <Image
+                    style={styles.profileImage}
+                    source={{
+                      uri: item.user.photoURL,
+                    }}
+                  />
+                ) : (
+                  <Image
+                    style={styles.profileImage}
+                    source={{
+                      uri: "http://kwakhyunjoo.co.kr/web/product/big/201805/712_shop1_15266383201366.jpg",
+                    }}
+                  />
+                )
+              ) : (
+                <Text>null</Text>
+              )}
               {item.user !== undefined ? (
                 <Text style={styles.name}>{item.user.name}</Text>
-              ) : null}
+              ) : (
+                <Text>null</Text>
+              )}
               <Text style={styles.text}>{item.text}</Text>
             </View>
             <Text

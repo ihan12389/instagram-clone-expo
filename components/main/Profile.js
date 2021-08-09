@@ -19,6 +19,7 @@ import { bindActionCreators } from "redux";
 import { updateProfile } from "../../redux/actions";
 
 require("firebase/firestore");
+require("firebase/auth");
 
 function Profile(props) {
   const [userPosts, setUserPosts] = useState([]);
@@ -30,6 +31,7 @@ function Profile(props) {
   useEffect(() => {
     const { currentUser, posts } = props;
 
+    // 계정주 확인
     if (props.route.params.uid === firebase.auth().currentUser.uid) {
       setUser(currentUser);
       setUserPosts(posts);
@@ -78,6 +80,8 @@ function Profile(props) {
           setUserPosts(posts);
         });
     }
+
+    // 팔로우 확인
     if (props.following.indexOf(props.route.params.uid) > -1) {
       setFollowing(true);
     } else {
@@ -103,27 +107,26 @@ function Profile(props) {
     });
 
     if (!result.cancelled) {
-      setImage(result.uri);
-      await firebase
-        .auth()
-        .currentUser.updateProfile({
-          photoURL: image,
-        })
+      await setImage(result.uri); // state에 저장
+
+      let user = await firebase.auth().currentUser;
+      await user
+        .updateProfile({ photoURL: result.uri })
         .then(() => {
-          updateProfile(props.route.params.uid);
-        })
-        .catch((error) => {
-          console.log(error);
-        });
-      await firebase
-        .firestore()
-        .collection("users")
-        .doc(props.route.params.uid)
-        .update({ photoURL: result.uri })
-        .then(() => {
-          console.log("upload Successful");
+          firebase // 데이터베이스에 저장
+            .firestore()
+            .collection("users")
+            .doc(props.route.params.uid)
+            .update({ photoURL: result.uri })
+            .then(() => {
+              props.updateProfile(props.route.params.uid); // 스토어에 저장
+              console.log("database Successful");
+            })
+            .catch((error) => console.log(error));
+          console.log("auth Success");
         })
         .catch((error) => console.log(error));
+      if (user != null) console.log(user.uid);
     }
   };
 
@@ -216,13 +219,13 @@ function Profile(props) {
           renderItem={({ item }) => (
             <View style={styles.containerImage}>
               <TouchableOpacity
-                onPress={() =>
-                  props.navigation.navigate("Post", {
-                    uid: props.route.params.uid,
-                    postId: item.id,
-                    post: userPosts,
-                  })
-                }
+              // onPress={() =>
+              //   props.navigation.navigate("Post", {
+              //     uid: props.route.params.uid,
+              //     postId: item.id,
+              //     post: userPosts,
+              //   })
+              // }
               >
                 <Image
                   style={styles.image}

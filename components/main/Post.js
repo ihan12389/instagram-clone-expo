@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useFocusEffect,
-} from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -14,41 +8,97 @@ import {
   Image,
 } from "react-native";
 import Constants from "expo-constants";
-import firebase from "firebase";
+import { firebase } from "@firebase/app";
 require("firebase/firestore");
 import { Ionicons } from "@expo/vector-icons";
 import { Fontisto } from "@expo/vector-icons";
+import { connect } from "react-redux";
+import { bindActionCreators } from "redux";
+import { addLikes, deleteLikes } from "../../redux/actions";
 
 const Post = (props) => {
-  const [yPosition, setYPosition] = useState(0);
-
-  const [user, setUser] = useState(null);
-  const [idx, setIdx] = useState(0);
+  const [user, setUser] = useState(null); // 현재 유저 정보
+  const [posts, setPosts] = useState([]); // 현재 유저의 포스트 정보
+  const [init, setInit] = useState(false); // 초기화 유무 정보
 
   const flatlistRef = useRef();
 
+  // 초기화 함수
   useEffect(() => {
-    firebase
-      .firestore()
-      .collection("users")
-      .doc(props.route.params.uid)
-      .get()
-      .then((doc) => {
-        if (doc.exists) {
-          setUser(doc.data());
-        } else {
-          console.log("Can't find user!");
-        }
-      })
-      .catch((error) => console.log(error));
-  }, [idx]);
+    matchLikesPosts();
+  }, [props.route.params.uid, props.route.params.postId.likesCount]);
 
-  const scrollToIndex = () => {
+  async function matchLikesPosts() {
+    const current_id = firebase.auth().currentUser.uid;
+    const own_id = props.route.params.uid;
+    const post_id = props.route.params.post.id;
+
+    await firebase
+      .firestore()
+      .collection("posts")
+      .doc(own_id)
+      .collection("userPosts")
+      .get()
+      .then((snapshot) => {
+        snapshot.docs.map((doc) => {
+          let data = doc.data();
+          console.log(data);
+
+          firebase
+            .firestore()
+            .collection("posts")
+            .doc(own_id)
+            .collection("userPosts")
+            .doc(data.id)
+            .collection("likes")
+            .doc(current_id)
+            .get()
+            .then((like) => {
+              console.log("df");
+            });
+        });
+      });
+  }
+
+  // 자동 스크롤 함수
+  const scrollToIndex = (index) => {
     console.log("scroll to index called !");
-    flatlistRef.current.scrollToIndex({ animated: true, index: idx });
+    flatlistRef.current.scrollToIndex({ animated: true, index: index });
+  };
+
+  // 좋아요 기능
+  const onLikePress = async (userId, postId) => {
+    await firebase
+      .firestore()
+      .collection("posts")
+      .doc(userId)
+      .collection("userPosts")
+      .doc(postId)
+      .collection("likes")
+      .doc(firebase.auth().currentUser.uid)
+      .set({});
+    props.addLikes(userId, postId);
+  };
+
+  // 좋아요 취소 기능
+  const onDislikePress = async (userId, postId) => {
+    await firebase
+      .firestore()
+      .collection("posts")
+      .doc(userId)
+      .collection("userPosts")
+      .doc(postId)
+      .collection("likes")
+      .doc(firebase.auth().currentUser.uid)
+      .delete();
+    props.deleteLikes(userId, postId);
   };
 
   if (user == null) {
+    return null;
+  }
+
+  if (posts == []) {
     return null;
   }
 
@@ -58,7 +108,7 @@ const Post = (props) => {
         <FlatList
           numColumns={1}
           horizontal={false}
-          initialScrollIndex={0}
+          keyExtractor={(item, index) => index.toString()}
           onScrollToIndexFailed={(info) => {
             const wait = new Promise((resolve) => setTimeout(resolve, 500));
             wait.then(() => {
@@ -68,18 +118,16 @@ const Post = (props) => {
               });
             });
           }}
-          data={props.route.params.post}
+          data={posts}
           ref={flatlistRef}
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
+            // console.log(item);
             return (
-              <View
-                style={styles.containerImage}
-                onLayout={() => setIdx(idx + 1)}
-              >
+              <View style={styles.containerImage}>
                 {item.id === props.route.params.postId ? (
                   <View
                     style={styles.containerMenuBar}
-                    onLayout={() => scrollToIndex()}
+                    onLayout={() => scrollToIndex(index)}
                   >
                     <View style={styles.containerMenyProfileBar}>
                       <Image
@@ -110,6 +158,7 @@ const Post = (props) => {
                   style={styles.image}
                   source={{ uri: item.downloadURL }}
                 />
+                <Text>{item.caption}</Text>
                 <View style={styles.containerUnderBar}>
                   {item.currentUserLike ? (
                     <Ionicons
@@ -117,7 +166,9 @@ const Post = (props) => {
                       name="heart-sharp"
                       size={24}
                       color="red"
-                      onPress={() => onDislikePress(item.user.uid, item.id)}
+                      onPress={() =>
+                        onDislikePress(props.route.params.uid, item.id)
+                      }
                     />
                   ) : (
                     <Ionicons
@@ -125,7 +176,9 @@ const Post = (props) => {
                       name="heart-outline"
                       size={24}
                       color="black"
-                      onPress={() => onLikePress(item.user.uid, item.id)}
+                      onPress={() =>
+                        onLikePress(props.route.params.uid, item.id)
+                      }
                     />
                   )}
                   <Fontisto
@@ -135,7 +188,7 @@ const Post = (props) => {
                     onPress={() =>
                       props.navigation.navigate("Comment", {
                         postId: item.id,
-                        uid: item.user.uid,
+                        uid: props.route.params.uid,
                       })
                     }
                   />
@@ -221,4 +274,13 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Post;
+const mapDispatchProps = (dispatch) =>
+  bindActionCreators(
+    {
+      addLikes,
+      deleteLikes,
+    },
+    dispatch
+  );
+
+export default connect(null, mapDispatchProps)(Post);

@@ -35,6 +35,7 @@ export function fetchUser() {
       });
   };
 }
+
 export function fetchUserPosts() {
   return (dispatch) => {
     firebase
@@ -54,6 +55,7 @@ export function fetchUserPosts() {
       });
   };
 }
+
 export function fetchUserFollowing() {
   return (dispatch) => {
     firebase
